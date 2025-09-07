@@ -11,17 +11,22 @@ const JWT_SECRET = process.env.JWT_SECRET ?? "dev-secret";
 const TEST_RECIPIENT = process.env.RESEND_TEST_RECIPIENT;
 const IS_PROD = process.env.NODE_ENV === "production";
 
+// En prod necesitamos SameSite=None + Secure para poder setear cookies desde otro dominio.
+const COOKIE_SAMESITE: "lax" | "none" = IS_PROD ? "none" : "lax";
+const COOKIE_SECURE = IS_PROD;
+
 /** Setea el cookie de sesión (JWT) */
 function setAuthCookie(res: Response, payload: object) {
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+
   res.setHeader(
     "Set-Cookie",
     serialize("canlab_auth", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: COOKIE_SECURE,
+      sameSite: COOKIE_SAMESITE,
       path: "/",
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: 7 * 24 * 60 * 60, // 7 días
     })
   );
 }
@@ -36,6 +41,8 @@ router.post("/request-link", async (req, res) => {
   // Token corto para el link
   const magic = jwt.sign({ email, t: "login" }, JWT_SECRET, { expiresIn: "10m" });
   const link  = `${FRONT_URL}/auth/callback?token=${encodeURIComponent(magic)}`;
+
+  // En dev con sandbox: enviamos a un destinatario de prueba si está configurado
   const finalTo = !IS_PROD && TEST_RECIPIENT ? TEST_RECIPIENT : email;
   const devNote = !IS_PROD && TEST_RECIPIENT
     ? `En desarrollo el correo se envió a ${finalTo} (original: ${email}).`
@@ -65,6 +72,7 @@ router.get("/verify", async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] }) as {
       email: string; t: "login"; iat: number; exp: number;
     };
+
     if (decoded.t !== "login") {
       console.error("[auth][verify] bad type:", decoded);
       return res.status(400).send("Invalid or expired token");
@@ -97,8 +105,8 @@ router.post("/logout", (_req, res) => {
     "Set-Cookie",
     serialize("canlab_auth", "", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: COOKIE_SECURE,
+      sameSite: COOKIE_SAMESITE,
       path: "/",
       expires: new Date(0),
     })
