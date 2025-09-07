@@ -3,9 +3,7 @@ import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-// 👇 usa require para evitar problemas de default import con @vercel/node
-//    (en TS compila bien aunque tengas "type":"commonjs")
-const cors = require("cors") as typeof import("cors");
+const cors = require("cors") as typeof import("cors"); // evita default-import issues en Vercel
 
 import swaggerUi from "swagger-ui-express";
 import { openapi } from "./docs/openapi";
@@ -15,16 +13,15 @@ import auth from "./routes/auth";
 
 const app = express();
 
-/* ------------------------- CORS robusto ------------------------- */
+/* ------------------------- CORS ------------------------- */
 const ALLOWED = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
-  .map(s => s.trim())
+  .map((s) => s.trim())
   .filter(Boolean);
 
 const corsOptions: import("cors").CorsOptions = {
   origin(origin, cb) {
-    // same-origin / herramientas (no traen Origin)
-    if (!origin) return cb(null, true);
+    if (!origin) return cb(null, true);              // same-origin/tools
     if (ALLOWED.includes(origin)) return cb(null, true);
     return cb(new Error(`CORS not allowed: ${origin}`));
   },
@@ -40,9 +37,14 @@ const corsOptions: import("cors").CorsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // preflight global
+// ❌ NO usar app.options("*", ...) en Express 5
+// ✅ Preflight simple y compatible:
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 
-/* ------------------------- Middlewares base ------------------------- */
+/* ------------------------- App base ------------------------- */
 app.use(express.json({ limit: "1mb" }));
 app.use(helmet());
 app.use(
@@ -51,19 +53,19 @@ app.use(
     max: 60,
     standardHeaders: true,
     legacyHeaders: false,
-  }),
+  })
 );
 
 /* ------------------------- Rutas API ------------------------- */
 app.get("/api/health", (_req, res) =>
-  res.json({ ok: true, ts: new Date().toISOString() }),
+  res.json({ ok: true, ts: new Date().toISOString() })
 );
 
 app.use("/api/auth", auth);
 app.use("/api/contact", contact);
 app.use("/api/quote", quote);
 
-// Swagger dentro de /api
+// Swagger en /api/docs
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openapi));
 
 // 404 JSON sólo para /api/*
