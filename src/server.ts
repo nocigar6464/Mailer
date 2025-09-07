@@ -11,6 +11,7 @@ import quote from "./routes/quote";
 import auth from "./routes/auth";
 
 const app = express();
+app.set("trust proxy", 1);
 
 /* ------------------------- CORS (robusto) ------------------------- */
 const ALLOWED = (process.env.CORS_ORIGIN || "http://localhost:5173")
@@ -29,9 +30,9 @@ const corsMw = cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
 });
 
-// Aplica CORS a todo (ya maneja OPTIONS automáticamente)
+
 app.use(corsMw);
-// ELIMINA ESTA LÍNEA: app.options("*", corsMw);
+
 
 /* ------------------------- App base ------------------------- */
 app.use(express.json({ limit: "1mb" }));
@@ -41,6 +42,7 @@ app.use(rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req: any) => req.ip,
 }));
 
 /* ------------------------- Rutas API ------------------------- */
