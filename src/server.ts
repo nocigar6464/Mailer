@@ -1,4 +1,3 @@
-// src/server.ts
 import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
@@ -35,7 +34,8 @@ const corsOptions: cors.CorsOptions = {
 };
 
 // ¡MUY IMPORTANTE!: montar CORS ANTES que las rutas
-app.use("/api", cors(corsOptions));
+// CAMBIO AQUÍ: Eliminado el prefijo "/api". Ahora se aplica a todas las peticiones que lleguen.
+app.use(cors(corsOptions));
 
 /* ============ App base ============ */
 app.use(express.json({ limit: "1mb" }));
@@ -56,19 +56,23 @@ app.use(
 
 /* ============ Rutas API ============ */
 // Health
-app.get("/api/health", (_req, res) =>
+// CAMBIO AQUÍ: La ruta ahora es "/health" (se accederá vía /api/health)
+app.get("/health", (_req, res) =>
   res.json({ ok: true, ts: new Date().toISOString() })
 );
 
 // Endpoints
-app.use("/api/auth", auth);
-app.use("/api/contact", contact);
-app.use("/api/quote", quote);
+// CAMBIO AQUÍ: Eliminado el prefijo "/api" de todas las rutas.
+app.use("/auth", auth);
+app.use("/contact", contact);
+app.use("/quote", quote);
 
-// Swagger bajo /api (evita problemas de MIME en /docs root)
-app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openapi));
+// Swagger
+// CAMBIO AQUÍ: La ruta ahora es "/docs" (se accederá vía /api/docs)
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi));
 
-// 404 JSON sólo para /api/*
-app.use("/api", (_req, res) => res.status(404).json({ error: "not_found" }));
+// 404 JSON para cualquier ruta no encontrada
+// CAMBIO AQUÍ: Este middleware ahora atrapará todo lo que no coincidió antes.
+app.use((_req, res) => res.status(404).json({ error: "not_found" }));
 
 export default app;
