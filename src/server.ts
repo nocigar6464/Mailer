@@ -38,7 +38,6 @@ const corsMw = cors({
 });
 
 app.use(corsMw);
-app.options("*", corsMw); // Responder todos los preflight OK
 
 /* ------------------------- App base ------------------------- */
 app.use(express.json({ limit: "1mb" }));
